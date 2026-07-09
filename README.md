@@ -47,6 +47,41 @@ LLMProvider (protocol) ── SimulatedOnDeviceProvider / SimulatedCloudProvider
 
 Swift 5.10+ (package manifest targets tools-version 5.10 for broad toolchain compatibility; builds equally well under a Swift 6 toolchain). iOS 17+ / macOS 14+ as library platform minimums.
 
+## Installation
+
+Add this repository as a Swift Package dependency:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/rajatslakhina/foundation-model-provider-gateway.git", branch: "main")
+]
+```
+
+and add `"ProviderGatewayKit"` to your target's `dependencies`.
+
+## Usage
+
+```swift
+import ProviderGatewayKit
+
+let router = ProviderRouter(
+    providers: [
+        SimulatedOnDeviceProvider(),
+        SimulatedCloudProvider()
+    ]
+)
+
+let session = LLMSession(
+    router: router,
+    systemPrompt: "You are a concise, friendly assistant."
+)
+
+let reply = try await session.send("What's a good name for a routing layer?")
+print(reply.text, "— answered by", reply.providerID)
+```
+
+Swap in your own `LLMProvider` conformance (wrapping a real on-device Foundation Models session, a cloud HTTP client, or an MLX-hosted endpoint) in place of the simulated providers above — nothing else in this snippet changes.
+
 ## Demo app
 
-Demo app: (added after the companion repo is pushed — see below).
+Demo app: **[foundation-model-provider-gateway-demo-app](https://github.com/rajatslakhina/foundation-model-provider-gateway-demo-app)** — a SwiftUI chat client built on this library, showing live provider routing (with a "which provider answered" badge on every reply), a tool-calling demo that forces the router down a tool-capable path, and a one-tap toggle to simulate a provider outage and watch automatic failover happen live.
