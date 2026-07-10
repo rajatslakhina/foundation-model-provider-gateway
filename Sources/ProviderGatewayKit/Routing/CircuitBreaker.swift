@@ -35,7 +35,11 @@ public actor CircuitBreaker {
     ///     single half-open probe request through.
     ///   - clock: injected so tests can advance time deterministically
     ///     instead of sleeping through real reset windows.
-    public init(failureThreshold: Int = 3, resetTimeout: Double = 30, clock: any MonotonicClock = SystemMonotonicClock()) {
+    public init(
+        failureThreshold: Int = 3,
+        resetTimeout: Double = 30,
+        clock: any MonotonicClock = SystemMonotonicClock()
+    ) {
         precondition(failureThreshold > 0, "failureThreshold must be positive")
         precondition(resetTimeout >= 0, "resetTimeout must be non-negative")
         self.failureThreshold = failureThreshold
