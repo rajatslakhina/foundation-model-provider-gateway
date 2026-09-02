@@ -60,4 +60,48 @@ final class ToolRegistryTests: XCTestCase {
         let names = await registry.definitions.map(\.name)
         XCTAssertEqual(names, ["boom", "echo"])
     }
+
+    /// Registering after construction, which is what a host app does when a tool becomes
+    /// available part-way through a session rather than at startup.
+    func testAToolRegisteredAfterConstructionBecomesCallable() async {
+        let registry = ToolRegistry()
+        let before = await registry.tool(named: "late")
+        XCTAssertNil(before)
+
+        await registry.register(LateTool())
+
+        let after = await registry.tool(named: "late")
+        XCTAssertNotNil(after)
+
+        let definitions = await registry.definitions
+        XCTAssertEqual(definitions.map(\.name), ["late"])
+
+        let result = await registry.execute(ToolCallRequest(toolName: "late", arguments: [:]))
+        XCTAssertEqual(result, .success("arrived late"))
+    }
+
+    /// Registering the same name twice replaces rather than duplicates — a registry that
+    /// grew two entries under one name would dispatch to whichever the dictionary happened
+    /// to hold.
+    func testRegisteringTheSameNameTwiceReplacesTheFirst() async {
+        let registry = ToolRegistry(tools: [LateTool(reply: "first")])
+        await registry.register(LateTool(reply: "second"))
+
+        let definitions = await registry.definitions
+        XCTAssertEqual(definitions.count, 1)
+
+        let result = await registry.execute(ToolCallRequest(toolName: "late", arguments: [:]))
+        XCTAssertEqual(result, .success("second"))
+    }
+}
+
+private struct LateTool: LLMTool {
+    var reply: String = "arrived late"
+    var definition: LLMToolDefinition {
+        LLMToolDefinition(name: "late", toolDescription: "registered after construction")
+    }
+
+    func execute(arguments: [String: LLMToolArgumentValue]) async throws -> LLMToolResult {
+        .success(reply)
+    }
 }

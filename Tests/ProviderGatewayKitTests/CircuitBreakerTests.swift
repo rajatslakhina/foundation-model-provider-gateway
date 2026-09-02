@@ -79,4 +79,32 @@ final class CircuitBreakerTests: XCTestCase {
         let state = await breaker.currentState
         XCTAssertEqual(state, .closed)
     }
+
+    /// A failure arriving while the circuit is already open.
+    ///
+    /// `allowsRequest()` would normally have blocked the call that produced it, so this
+    /// is the race the breaker was written to survive: two attempts admitted before the
+    /// circuit tripped, the second reporting back after it did. The breaker re-trips,
+    /// which pushes the reset deadline out rather than leaving a stale one in place.
+    func testAFailureArrivingWhileOpenExtendsTheResetWindow() async {
+        let clock = ManualClock()
+        let breaker = CircuitBreaker(failureThreshold: 1, resetTimeout: 30, clock: clock)
+
+        await breaker.recordFailure()
+        let openedAt = await breaker.currentState
+        XCTAssertEqual(openedAt, .open(until: 30))
+
+        clock.advance(by: 10)
+        await breaker.recordFailure()
+
+        let extended = await breaker.currentState
+        XCTAssertEqual(extended, .open(until: 40), "the late failure should push the deadline out")
+
+        let allowedBefore = await breaker.allowsRequest()
+        XCTAssertFalse(allowedBefore, "still inside the extended window")
+
+        clock.advance(by: 30)
+        let allowedAfter = await breaker.allowsRequest()
+        XCTAssertTrue(allowedAfter, "the extended window has now elapsed")
+    }
 }
